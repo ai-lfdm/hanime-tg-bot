@@ -1,0 +1,49 @@
+name: Hanime1 Daily Old Videos
+
+on:
+  schedule:
+    - cron: '0 10 * * *'      # 每天北京时间 18:00 (UTC 10:00)
+  workflow_dispatch:
+  
+concurrency:
+  group: hanime1-post
+  cancel-in-progress: false
+
+permissions:
+  contents: write  # 允许 git push 提交 seen.txt / state.json 进度
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run main script
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          SESSION_STRING: ${{ secrets.SESSION_STRING }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          PROXY: ${{ secrets.PROXY }}
+        run: python main.py
+
+      - name: Commit progress
+        if: success() || failure()
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add seen.txt state.json
+          git diff --staged --quiet || (git commit -m "Update progress [skip ci]" && git push)
